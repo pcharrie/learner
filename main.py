@@ -7,30 +7,33 @@ from graphicUnit import MyWindow
 from PyQt5.QtWidgets import QApplication
 
 class Configuration():
-	nbWordSerie   = 0
-	question      = 1
-	nbCorrectAnswer = 0
-	nbQuestions   = 3
-	schlem        = 0
-	max_word_size = 20
-	startIdx      = 0
-	endIdx        = 4
-	userName      = "pierre"
+	nbWordSerie   = 0 # wr
+	question      = 1 # wr/rd
+	nbCorrectAnswer = 0 #
+	nbQuestions   = 10 # rd
+	schlem        = 0 # wr
+	startIdx      = 1 # rd
+	endIdx        = 4 # wr
 	columnToFilter= [2]
-	nbColumns     = 3
-	nbRows        = 5
-	nbClickValidMax = 2
+	nbColumns     = 3 # rd
+	nbRows        = 5 # rd
+	nbClickValidMax = 2 # rd
 
 
 	def __init__(self):
 		self.wordsList = []
-		self.nbFields = 3
+		self.nbFields = 4
 
 	def openCsvFile(self, fileName):
 		try:
 			with open(fileName, newline='\n', encoding='iso-8859-1',errors='ignore') as csvfile:
 				fileReader = csv.reader(csvfile, delimiter=';', quotechar='|')
 				for i, row in enumerate(fileReader):
+					if i == 0 and self.startIdx != 0:
+						for idx in self.columnToFilter:
+							row.pop(idx)
+						self.wordsList.append(row)
+						self.nbWordSerie += 1
 					if i in range(self.startIdx, self.endIdx):
 						for idx in self.columnToFilter:
 							row.pop(idx)

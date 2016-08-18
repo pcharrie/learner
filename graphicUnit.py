@@ -12,8 +12,6 @@ from myWidgets import LineEdit, MyProgressBar
 import sys
 import random
 
-from log import printLog
-
 class Communicate(QObject):
 	validTrig = pyqtSignal()
 
@@ -23,13 +21,19 @@ class MyWindow(QWidget):
 	userSolution = []  # What the user has texted
 	nbClickValid = 0
 	grid = QGridLayout() # gridLayout
-	stats = Stats(3)
 	isFinished = False
 
 	def __init__(self, conf):
 		super().__init__()
 		self.conf = conf
+		self.stats = Stats(self.conf.startIdx, self.conf.endIdx)
 		self.initUI()
+		self.stats.loadHistogram()
+		self.stats.updateWeightList(self.conf.wordsList)
+		print("Histogram:\n")
+		for k,v in self.stats.histogram.items():
+			print(k,v)
+
 
 	def initUI(self):
 		#####################
@@ -84,8 +88,8 @@ class MyWindow(QWidget):
 
 	def chooseSerie(self):
 		random.seed()
-		print("weight list", self.stats.weightList)
-		idx = random.choice(self.stats.weightList)
+		print(self.stats.weightList)
+		idx = random.choice(self.stats.weightList) - self.conf.startIdx
 		serieChosen = self.conf.wordsList[idx]
 		return serieChosen
 
@@ -113,7 +117,6 @@ class MyWindow(QWidget):
 		self.stats.updateStats(self.conf)
 
 	def nextQuestion(self):
-		print()
 		self.erase()
 		if self.conf.question >= self.conf.nbQuestions:
 			self.isFinished = True
@@ -137,71 +140,59 @@ class MyWindow(QWidget):
 		qLineQuestion= self.userSolution[indexChosen]
 		qLineQuestion.setText(wordChosen)
 		qLineQuestion.setEnabled(False)
-		qLineQuestion.setStyleSheet("""QLineEdit { background-color: white; color: green }""")
+		qLineQuestion.setStyleSheet(goodResult)
 		self.grid.addWidget(qLineQuestion, 0, 1)
 
-	def isApproximatelyCorrect(self, caseN):
-		isGood = False
-		solution = []
-		solution.extend(self.solution[caseN].split(","))
-		solution.extend(self.solution[caseN].split(" "))
-		if self.userSolution[caseN].text() not in solution:
-			isGood = True
-		return isGood
 
 	def erase(self):
 		for i in range(len(self.solution)):
-			self.userSolution[i].setStyleSheet(
-				"""QLineEdit { background-color: white; color: black }""")
+			self.userSolution[i].setStyleSheet(waitResult)
 			self.userSolution[i].setText("")
 			self.guiSolution[i].setText("")
 
+	# One of the word is correct is count as a right answer
+	def isApproximatelyCorrect(self, caseN):
+		solution = []
+		solution.extend(self.solution[caseN].split(","))
+		solution.extend(self.solution[caseN].split(" "))
+		return self.userSolution[caseN].text() in solution
+
 	def areAllCorrectAnswers(self):
-		allGood = True
-		for caseN in range(1, len(self.solution)):
-			isGood = True
-			if caseN != 3:
-				if self.userSolution[caseN].text() != self.solution[caseN]:
-					isGood = False
-					if self.userSolution[caseN].text() != "":
-						self.userSolution[caseN].setStyleSheet("""QLineEdit { background-color: white; color: red }""")
-					self.guiSolution[caseN].setText(self.solution[caseN])
-					allGood = False
-			elif (caseN == 3):  # One of the word is correct is count as a right answer
-				if self.isApproximatelyCorrect(caseN):
-					isGood = False
-					if self.userSolution[caseN].text() != "":
-						self.userSolution[caseN].setStyleSheet("""QLineEdit { background-color: white; color: red }""")
-					self.guiSolution[caseN].setText(self.solution[caseN])
-					allGood = False
-			if isGood:
-				self.userSolution[caseN].setStyleSheet("""QLineEdit { background-color: white; color: green }""")
+		nbBadAnswer = 0
+		idxQuestion = 1
+		nbMaxCase = 3
+		for caseN in range(idxQuestion, len(self.solution)):
+			conditionA = ((caseN != nbMaxCase) and (self.userSolution[caseN].text() != self.solution[caseN]))
+			conditionB = ((caseN == nbMaxCase) and (not self.isApproximatelyCorrect(caseN)))
+			if conditionA or conditionB:
+				nbBadAnswer += 1
+				if self.userSolution[caseN].text() != "":
+					self.userSolution[caseN].setStyleSheet(badResult)
+				self.guiSolution[caseN].setText(self.solution[caseN])
+			else:
+				self.userSolution[caseN].setStyleSheet(goodResult)
 				self.userSolution[caseN].setEnabled(False)
 				self.guiSolution[caseN].setText("")
-		return allGood
+		return nbBadAnswer
 
 	def valid(self):
+		nbMaxCase = 3
 		if self.isFinished: return
 		assert len(self.solution) == len(self.userSolution)
 		assert len(self.solution) == len(self.guiSolution)
 		self.nbClickValid += 1
-		print("nb click valid", self.nbClickValid)
-		allGood = self.areAllCorrectAnswers()
-		if allGood:
-			print("case a")
+		nbBadAnswer = self.areAllCorrectAnswers()
+		self.conf.nbCorrectAnswer = nbMaxCase - nbBadAnswer
+		if nbBadAnswer == 0:
 			self.nbClickValid = 0
 			self.stats.delWordFromHistogram(self.solution[0], self.conf.wordsList)
-			self.conf.nbCorrectAnswer = 3
 			self.conf.schlem += 1
 			self.nextQuestion()
 		elif self.nbClickValid == self.conf.nbClickValidMax:  # nb of tries
 			self.nbClickValid = 0
-			self.conf.nbCorrectAnswer = 0
 			self.stats.addWordToHistogram(self.solution, self.conf.wordsList)
 			self.nextQuestion()
 		else:
-			print("case c")
-			self.conf.nbCorrectAnswer = 0
 			self.conf.schlem = 0
 
 	def finishGame(self):
@@ -209,7 +200,6 @@ class MyWindow(QWidget):
 		self.stats.dumpHistogram()
 		for i in range(1, len(self.solution)):
 			self.userSolution[i].setEnabled(False)
-			self.guiSolution[i].setText("")
 		print("End of game")
 		sys.exit()
 
