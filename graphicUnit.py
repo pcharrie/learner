@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtWidgets import QWidget, QPushButton, QLabel, QInputDialog, QDesktopWidget, QGridLayout, QAction
-from PyQt5.QtCore    import pyqtSignal, pyqtSlot, Qt, QObject
-from PyQt5.QtGui     import QKeyEvent, QIcon
+from PyQt5.QtWidgets import QWidget, QPushButton, QLabel, QDesktopWidget, QGridLayout, QFileDialog
+from PyQt5.QtCore    import pyqtSignal, Qt, QObject
+from PyQt5.QtGui     import QIcon
 
 from stats import Stats
 from values import *
@@ -15,6 +15,9 @@ import random
 class Communicate(QObject):
 	validTrig = pyqtSignal()
 
+class CommunicateOpening(QObject):
+	opening = pyqtSignal()
+
 class MyWindow(QWidget):
 	solution = []  # The list of string with the word solution
 	guiSolution = []  # The answer in case of mistakes
@@ -25,24 +28,27 @@ class MyWindow(QWidget):
 
 	def __init__(self, conf):
 		super().__init__()
+		self.indexChosen = 0
 		self.conf = conf
-		self.stats = Stats(self.conf.startIdx, self.conf.endIdx)
+		self.stats = Stats(self.conf.startIdx, self.conf.endIdx, self.conf.wordsList)
 		self.initUI()
-		self.stats.loadHistogram()
-		self.stats.updateWeightList(self.conf.wordsList)
-		print("Histogram:\n")
-		for k,v in self.stats.histogram.items():
-			print(k,v)
-
 
 	def initUI(self):
 		#####################
 		# Windows           #
 		#####################
-		self.setTitle()
 		self.center()
 		self.setWindowTitle('Verben Prünfung')
 		self.setWindowIcon(QIcon('germanFlag.jpg'))
+		#####################
+		# File open menu    #
+		#####################
+		self.openingAction = CommunicateOpening()
+		self.openingAction.opening.connect(self.showDialog)
+		#####################
+		# Title menu        #
+		#####################
+		self.setTitle()
 		#####################
 		# Button validation #
 		#####################
@@ -62,10 +68,17 @@ class MyWindow(QWidget):
 		self.grid.setSpacing(10)
 
 	def keyPressEvent(self, event):
-		key = event.key()+1
-		if key == Qt.Key_Enter:
+		key = event.key()
+		if key == Qt.Key_Enter-1:
 			if not self.isFinished:
 				self.validAction.validTrig.emit()
+		if key == Qt.Key_O:
+			self.openingAction.opening.emit()
+
+	def showDialog(self):
+		fileName = QFileDialog.getOpenFileName(self, 'Open file', '/home')
+		if fileName[0]:
+			self.conf.openCsvFile(fileName[0])
 
 	def center(self):
 		qr = self.frameGeometry()
@@ -76,6 +89,7 @@ class MyWindow(QWidget):
 	def setTitle(self):
 		assert len(self.conf.wordsList) > 0
 		titleList = self.conf.wordsList.pop(0)
+		self.conf.endIdx -= 1
 		for row, t in enumerate(titleList):
 			if row >= NB_MAX_ROW: continue
 			labelTitle = QLabel(self)
@@ -86,22 +100,30 @@ class MyWindow(QWidget):
 			self.grid.addWidget(labelTitle, row, 0)
 		self.createQuestion()
 
-	def chooseSerie(self):
-		random.seed()
-		print(self.stats.weightList)
-		idx = random.choice(self.stats.weightList) - self.conf.startIdx
-		serieChosen = self.conf.wordsList[idx]
-		return serieChosen
-
 	def createQuestion(self):
 		serieChosen = self.chooseSerie()
 		for i, s in enumerate(serieChosen):
-			answer = QLabel(self)
-			answer.setText("")
-			self.guiSolution.append(answer)
+			answerQtLabel = QLabel(self)
+			answerQtLabel.setText("")
+			self.guiSolution.append(answerQtLabel)
 			self.solution.append(s)
-			self.grid.addWidget(answer, i, 2)
+			self.grid.addWidget(answerQtLabel, i, 2)
 		self.setQuestion(serieChosen)
+
+	def chooseSerie(self):
+		random.seed()
+		idx = random.choice(self.stats.weightList)
+		serieChosen = self.conf.wordsList[idx]
+		return serieChosen
+
+	def setQuestion(self, serieChosen):
+		self.indexChosen = 0  # random.randint(0, len(serieChosen)-1)
+		wordChosen = serieChosen[self.indexChosen]
+		qLineQuestion= self.userSolution[self.indexChosen]
+		qLineQuestion.setText(wordChosen)
+		qLineQuestion.setEnabled(False)
+		qLineQuestion.setStyleSheet(waitResult)
+		self.grid.addWidget(qLineQuestion, 0, 1)
 
 	def createStatsArea(self):
 		nbPercCorrectAnswerGui      = MyProgressBar(self)
@@ -123,26 +145,16 @@ class MyWindow(QWidget):
 		if not self.isFinished:
 			self.conf.question += 1
 			self.stats.updateStats(self.conf)
+			self.conf.nbCorrectAnswer = 0
 			if self.conf.wordsList != []:
 				serieChosen = self.chooseSerie()
 				for i, s in enumerate(serieChosen):
-					if i != 0: self.guiSolution[i].setText(s)
+					if i != self.indexChosen and self.nbClickValid != 0: self.guiSolution[i].setText(s)
 					self.solution[i] = s
 					self.userSolution[i].setEnabled(True)
 				self.setQuestion(serieChosen)
 		else:
 			self.finishGame()
-
-	def setQuestion(self, serieChosen):
-		indexChosen = 0  # random.randint(0, len(serieChosen)-1)
-		wordChosen = serieChosen[indexChosen]
-		self.guiSolution[0].setText(wordChosen)
-		qLineQuestion= self.userSolution[indexChosen]
-		qLineQuestion.setText(wordChosen)
-		qLineQuestion.setEnabled(False)
-		qLineQuestion.setStyleSheet(goodResult)
-		self.grid.addWidget(qLineQuestion, 0, 1)
-
 
 	def erase(self):
 		for i in range(len(self.solution)):
@@ -176,21 +188,24 @@ class MyWindow(QWidget):
 		return nbBadAnswer
 
 	def valid(self):
-		nbMaxCase = 3
 		if self.isFinished: return
+		if len(self.solution) != len(self.userSolution):
+			for e in self.solution:	print(e)
+			for e in self.userSolution: print(e)
 		assert len(self.solution) == len(self.userSolution)
 		assert len(self.solution) == len(self.guiSolution)
 		self.nbClickValid += 1
 		nbBadAnswer = self.areAllCorrectAnswers()
-		self.conf.nbCorrectAnswer = nbMaxCase - nbBadAnswer
 		if nbBadAnswer == 0:
 			self.nbClickValid = 0
 			self.stats.delWordFromHistogram(self.solution[0], self.conf.wordsList)
 			self.conf.schlem += 1
+			self.conf.nbCorrectAnswer += self.conf.nbFields - nbBadAnswer
 			self.nextQuestion()
 		elif self.nbClickValid == self.conf.nbClickValidMax:  # nb of tries
 			self.nbClickValid = 0
-			self.stats.addWordToHistogram(self.solution, self.conf.wordsList)
+			self.stats.addWordToHistogram(self.solution[0], self.conf.wordsList)
+			self.conf.nbCorrectAnswer += self.conf.nbFields - nbBadAnswer
 			self.nextQuestion()
 		else:
 			self.conf.schlem = 0

@@ -9,13 +9,19 @@ class Stats():
 	activate = True
 	successRate = 100
 
-	def __init__(self, infEdge, supEdge):
-		self.weightList = [i for i in range(infEdge,supEdge)]
+	def __init__(self, infEdge, supEdge, wordsList):
+		self.weightList = [i-infEdge for i in range(infEdge,supEdge)]
+		self.loadHistogram()
+		self.updateWeightList(wordsList)
+		print("Histogram:")
+		for k, v in self.histogram.items():
+			print(k, v)
+		print()
 
 	def updateStats(self, conf):
 		progressRate =  0
 		if conf.question != 0:
-			success = float(conf.nbCorrectAnswer) / float(conf.nbFields) * float(100)
+			success = (float(conf.nbCorrectAnswer) / float(conf.nbFields)) * float(100)
 			if conf.question == 1:success = float(100)
 			sR = self.successRate
 			self.successRate = (sR + success) / float(2)
@@ -26,14 +32,15 @@ class Stats():
 		self.stats[2].setValue(progressRate)
 
 	def saveStats(self):
-		statsFile = open("stats.txt", "w+")
+		fileName = "stats.txt"
+		statsFile = open(fileName, "a+")
 		data = str(self.successRate)+"\n"
 		statsFile.write(data)
 		statsFile.close()
 
 	def dumpHistogram(self):
 		fileName = "histogram.txt"
-		f = open(fileName, "w+")
+		f = open(fileName, 'w+', encoding='iso-8859-1')
 		for k,v in self.histogram.items():
 			data = str(k)+":"+str(v)+"\n"
 			f.write(data)
@@ -53,17 +60,19 @@ class Stats():
 
 	def updateWeightList(self, wordList):
 		for word, weight in self.histogram.items():
-			idx = self.getIdxFrom(word, wordList)
-			for _ in range(weight):
-				self.weightList.append(idx)
+			if word in wordList:
+				idx = self.getIdxFrom(word, wordList)
+				for _ in range(weight):
+					self.weightList.append(idx)
 
 	def addWordToHistogram(self, word, wordList):
-		idx = self.getIdxFrom(word[0], wordList)
+		idx = self.getIdxFrom(word, wordList)
 		self.weightList.append(idx)
-		if word[0] in self.histogram:
-			self.histogram[word[0]] += 1
+		if word in self.histogram:
+			if self.histogram[word] <= 20:
+				self.histogram[word] += 1
 		else:
-			self.histogram.update({word[0]: 1})
+			self.histogram.update({word: 1})
 
 	def delWordFromHistogram(self, word, wordList):
 		if word in self.histogram.keys():
@@ -77,6 +86,5 @@ class Stats():
 		for i, serie in enumerate(wordList):
 			if word == serie[0]:
 				return i
-		for e in wordList:print(e)
 		raise SystemError("Word was not found "+str(word))
 
