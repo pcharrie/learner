@@ -16,12 +16,20 @@ class Stats():
 	successRate = 100
 
 	def __init__(self, infEdge, supEdge, wordsList):
+		diff = supEdge - infEdge
 		if supEdge >= len(wordsList): supEdge = len(wordsList) - 1
+		val = supEdge - diff
+		infEdge = val if val >= 0 else 0
 		self.weightList = [i-infEdge for i in range(infEdge, supEdge)]
 		self.loadHistogram()
 		self.updateWeightList(wordsList)
-		print("Histogram:")
-		for k, v in sorted(self.histogram.items()):
+		self.printHistogram()
+
+	def printHistogram(self):
+		print("\n","Histogram:")
+		dic = self.histogram
+		d = [(k , dic[k]) for k in sorted(dic,key=dic.get)]
+		for k,v in d:
 			print(k, v)
 		print()
 

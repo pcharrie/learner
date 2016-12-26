@@ -39,12 +39,10 @@ class Widget(QWidget):
 		#####################
 		self.validAction = Communicate()
 		self.validAction.validTrig.connect(self.valid)
-
 		self.pushButtonValid = QPushButton(self)
 		self.pushButtonValid.setText("Valid")
 		self.pushButtonValid.setDefault(True)
 		self.pushButtonValid.setAutoDefault(True)
-
 		self.grid.addWidget(self.pushButtonValid, 30, 0, 10, 3)
 		self.pushButtonValid.clicked.connect(self.valid)
 
@@ -119,7 +117,8 @@ class Widget(QWidget):
 			if self.conf.wordsList != []:
 				serieChosen = self.chooseSerie()
 				for i, s in enumerate(serieChosen):
-					if i != self.indexChosen and self.nbClickValid != 0: self.guiSolution[i].setText(s)
+					if i != self.indexChosen and self.nbClickValid != 0:
+						self.guiSolution[i].setText(s)
 					self.solution[i] = s
 					self.userSolution[i].setEnabled(True)
 				self.setQuestion(serieChosen)
@@ -149,11 +148,11 @@ class Widget(QWidget):
 				nbBadAnswer += 1
 				if self.userSolution[caseN].text() != "":
 					self.userSolution[caseN].setStyleSheet(badResult)
-				self.guiSolution[caseN].setText(self.solution[caseN])
+				if self.conf.withAnswer: self.guiSolution[caseN].setText(self.solution[caseN])
 			else:
 				self.userSolution[caseN].setStyleSheet(goodResult)
 				self.userSolution[caseN].setEnabled(False)
-				self.guiSolution[caseN].setText("")
+				if self.conf.withAnswer: self.guiSolution[caseN].setText("")
 		return nbBadAnswer
 
 	def valid(self):
@@ -183,7 +182,3 @@ class Widget(QWidget):
 			self.userSolution[i].setEnabled(False)
 		print("End of game")
 		sys.exit()
-
-
-
-
