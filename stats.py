@@ -3,6 +3,12 @@
 
 import csv
 
+
+def belong2wordList(word, ListOfwordList):
+	for wordSet in ListOfwordList:
+		if word in wordSet: return True
+	return False
+
 class Stats():
 	stats = []
 	histogram = {}
@@ -10,11 +16,12 @@ class Stats():
 	successRate = 100
 
 	def __init__(self, infEdge, supEdge, wordsList):
-		self.weightList = [i-infEdge for i in range(infEdge,supEdge)]
+		if supEdge >= len(wordsList): supEdge = len(wordsList) - 1
+		self.weightList = [i-infEdge for i in range(infEdge, supEdge)]
 		self.loadHistogram()
 		self.updateWeightList(wordsList)
 		print("Histogram:")
-		for k, v in self.histogram.items():
+		for k, v in sorted(self.histogram.items()):
 			print(k, v)
 		print()
 
@@ -60,7 +67,7 @@ class Stats():
 
 	def updateWeightList(self, wordList):
 		for word, weight in self.histogram.items():
-			if word in wordList:
+			if belong2wordList(word, wordList):
 				idx = self.getIdxFrom(word, wordList)
 				for _ in range(weight):
 					self.weightList.append(idx)

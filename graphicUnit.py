@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtWidgets import QWidget, QPushButton, QLabel, QDesktopWidget, QGridLayout, QFileDialog
-from PyQt5.QtCore    import pyqtSignal, Qt, QObject
-from PyQt5.QtGui     import QIcon
+from PyQt5.QtWidgets import QWidget, QPushButton, QLabel, QGridLayout
+from PyQt5.QtCore    import Qt, pyqtSignal, QObject
 
 from stats import Stats
 from values import *
@@ -15,36 +14,22 @@ import random
 class Communicate(QObject):
 	validTrig = pyqtSignal()
 
-class CommunicateOpening(QObject):
-	opening = pyqtSignal()
-
-class MyWindow(QWidget):
+class Widget(QWidget):
 	solution = []  # The list of string with the word solution
 	guiSolution = []  # The answer in case of mistakes
-	userSolution = []  # What the user has texted
+	userSolution = []  # What the user has texted (gui object)
 	nbClickValid = 0
 	grid = QGridLayout() # gridLayout
 	isFinished = False
 
-	def __init__(self, conf):
-		super().__init__()
-		self.indexChosen = 0
+	def __init__(self, parent, conf):
+		super(Widget, self).__init__(parent) #super().__init__()
+		self.indexChosen = 0 # idxQuestion
 		self.conf = conf
 		self.stats = Stats(self.conf.startIdx, self.conf.endIdx, self.conf.wordsList)
 		self.initUI()
 
 	def initUI(self):
-		#####################
-		# Windows           #
-		#####################
-		self.center()
-		self.setWindowTitle('Verben Prünfung')
-		self.setWindowIcon(QIcon('germanFlag.jpg'))
-		#####################
-		# File open menu    #
-		#####################
-		self.openingAction = CommunicateOpening()
-		self.openingAction.opening.connect(self.showDialog)
 		#####################
 		# Title menu        #
 		#####################
@@ -72,26 +57,13 @@ class MyWindow(QWidget):
 		if key == Qt.Key_Enter-1:
 			if not self.isFinished:
 				self.validAction.validTrig.emit()
-		if key == Qt.Key_O:
-			self.openingAction.opening.emit()
-
-	def showDialog(self):
-		fileName = QFileDialog.getOpenFileName(self, 'Open file', '/home')
-		if fileName[0]:
-			self.conf.openCsvFile(fileName[0])
-
-	def center(self):
-		qr = self.frameGeometry()
-		cp = QDesktopWidget().availableGeometry().center()
-		qr.moveCenter(cp)
-		self.move(qr.topLeft())
 
 	def setTitle(self):
 		assert len(self.conf.wordsList) > 0
 		titleList = self.conf.wordsList.pop(0)
 		self.conf.endIdx -= 1
 		for row, t in enumerate(titleList):
-			if row >= NB_MAX_ROW: continue
+			if row > self.conf.endIdx: continue
 			labelTitle = QLabel(self)
 			labelTitle.setText(t)
 			userAnswer = LineEdit(self)
@@ -117,13 +89,13 @@ class MyWindow(QWidget):
 		return serieChosen
 
 	def setQuestion(self, serieChosen):
-		self.indexChosen = 0  # random.randint(0, len(serieChosen)-1)
+		self.indexChosen = random.choice(range(0, len(serieChosen)))
 		wordChosen = serieChosen[self.indexChosen]
 		qLineQuestion= self.userSolution[self.indexChosen]
 		qLineQuestion.setText(wordChosen)
 		qLineQuestion.setEnabled(False)
 		qLineQuestion.setStyleSheet(waitResult)
-		self.grid.addWidget(qLineQuestion, 0, 1)
+		self.grid.addWidget(qLineQuestion, self.indexChosen, 1)
 
 	def createStatsArea(self):
 		nbPercCorrectAnswerGui      = MyProgressBar(self)
@@ -134,8 +106,6 @@ class MyWindow(QWidget):
 			if i == 0: self.grid.addWidget(e, 10, 0, 4, 3)
 			if i == 1: self.grid.addWidget(e, 14, 0, 6, 3)
 			if i == 2: self.grid.addWidget(e, 20, 0, 8, 3)
-		a = QLabel(self)
-		a.setText("  ")
 		self.stats.updateStats(self.conf)
 
 	def nextQuestion(self):
@@ -171,9 +141,8 @@ class MyWindow(QWidget):
 
 	def areAllCorrectAnswers(self):
 		nbBadAnswer = 0
-		idxQuestion = 1
-		nbMaxCase = 3
-		for caseN in range(idxQuestion, len(self.solution)):
+		nbMaxCase = len(self.userSolution)  # The last answer is approximate
+		for caseN in range(len(self.solution)):
 			conditionA = ((caseN != nbMaxCase) and (self.userSolution[caseN].text() != self.solution[caseN]))
 			conditionB = ((caseN == nbMaxCase) and (not self.isApproximatelyCorrect(caseN)))
 			if conditionA or conditionB:
@@ -189,22 +158,19 @@ class MyWindow(QWidget):
 
 	def valid(self):
 		if self.isFinished: return
-		if len(self.solution) != len(self.userSolution):
-			for e in self.solution:	print(e)
-			for e in self.userSolution: print(e)
 		assert len(self.solution) == len(self.userSolution)
 		assert len(self.solution) == len(self.guiSolution)
 		self.nbClickValid += 1
 		nbBadAnswer = self.areAllCorrectAnswers()
 		if nbBadAnswer == 0:
 			self.nbClickValid = 0
-			self.stats.delWordFromHistogram(self.solution[0], self.conf.wordsList)
+			self.stats.delWordFromHistogram(self.solution[0], self.conf.wordsList) # histogram references only the idx 0
 			self.conf.schlem += 1
 			self.conf.nbCorrectAnswer += self.conf.nbFields - nbBadAnswer
 			self.nextQuestion()
 		elif self.nbClickValid == self.conf.nbClickValidMax:  # nb of tries
 			self.nbClickValid = 0
-			self.stats.addWordToHistogram(self.solution[0], self.conf.wordsList)
+			self.stats.addWordToHistogram(self.solution[0], self.conf.wordsList)  # histogram references only the idx 0
 			self.conf.nbCorrectAnswer += self.conf.nbFields - nbBadAnswer
 			self.nextQuestion()
 		else:
