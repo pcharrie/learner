@@ -5,7 +5,9 @@ import sys
 import csv
 from graphicUnit import Widget
 from myWidgets import CheckBox, SpinBox
-from PyQt5.QtWidgets import QApplication, QMainWindow, qApp, QAction, QWidget, QVBoxLayout, QHBoxLayout, QFileDialog
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QApplication, QMainWindow, qApp, QAction, QWidget,\
+	QVBoxLayout, QHBoxLayout, QFileDialog, QDialog
 from PyQt5.QtGui     import QIcon
 
 def removeNullString(wordsList):
@@ -27,22 +29,24 @@ def openFile(fileName):
 		return data
 
 class Configuration():
-	nbWordSerie     = 0 # wr
-	question        = 1 # wr/rd
-	nbCorrectAnswer = 0 #
-	schlem          = 0 # wr
 
 	def __init__(self):
+		self.titleList       = None
 		self.wordsList       = []
 		self.nbFields        = 0 # variable to know the number of columns of the file
 		self.columnToFilter  = []
 		self.endIdx          = 100 # wr number of rows of the file
 		self.startIdx        = 0 # rd
+		self.question        = 1 # wr/rd
 		self.nbQuestions     = 10 # rd
 		self.nbClickValidMax = 2 # rd
 		self.withAnswer      = True
+		self.nbWordSerie     = 0 # wr
+		self.nbCorrectAnswer = 0 #
+		self.schlem          = 0 # wr
 
 	def openCsvFile(self, fileName):
+
 		try:
 			with open(fileName, newline='\n', encoding='iso-8859-1',errors='ignore') as csvfile:
 				fileReader = csv.reader(csvfile, delimiter=';', quotechar='|')
@@ -59,6 +63,9 @@ class Configuration():
 						print(row)
 						self.wordsList.append(row)
 						self.nbWordSerie += 1
+				assert len(self.wordsList) > 1
+				self.titleList = self.wordsList.pop(0)
+				self.endIdx -= 1
 		except OSError: # 'File not found' error message.
 			print("File not found")
 
@@ -112,28 +119,18 @@ class MainWindow(QMainWindow):
 		super(MainWindow, self).__init__(parent)
 		self.theWidget = Widget(self, conf)
 		_widget = QWidget()
-		self.widgetSpinBoxes = {"Filter" :SpinBox("Filter" , conf, 0, 5),
-		                        "Click"  :SpinBox("Click"  , conf, 0, 5),
-		                        "Row min":SpinBox("Row min", conf, 0, None),
-		                        "Row max":SpinBox("Row max", conf, 0, 100),
-		                        "Nb Q"   :SpinBox("Nb Q"   , conf, 1, 50),
-		                        "Check answer":CheckBox("With answer", conf)}
-		_otherLayout = QHBoxLayout ()
-		for k,v in sorted(self.widgetSpinBoxes.items()): _otherLayout.addWidget(v)
-		self.theOtherLayout = _otherLayout
 		_layout = QVBoxLayout(_widget)
-		_layout.addLayout(_otherLayout)
 		_layout.addWidget(self.theWidget)
 		self.theLayout = _layout
 		self.setCentralWidget(_widget)
-		self.initUI()
 		self.conf = conf
+		self.initUI()
 
 	def initUI(self):
 		#####################
 		# Exit menu    #
 		#####################
-		exitAction = QAction(QIcon('exit.png'), 'Exit', self)
+		exitAction = QAction(QIcon('exit.png'), 'Exit Ctrl+Q', self)
 		exitAction.setShortcut('Ctrl+Q')
 		exitAction.triggered.connect(qApp.quit)
 		self.toolbar = self.addToolBar('Exit')
@@ -142,20 +139,49 @@ class MainWindow(QMainWindow):
 		#####################
 		# File open menu    #
 		#####################
-		openFileAction = QAction(QIcon('openFile.png'), 'Open File', self)
+		openFileAction = QAction(QIcon('openFile.png'), 'Open File Ctrl+O', self)
 		openFileAction.setShortcut('Ctrl+O')
-		openFileAction.triggered.connect(self.showDialog)
+		openFileAction.triggered.connect(self.showOpenFileMenu)
 		self.toolbar = self.addToolBar('Open File')
 		self.toolbar.addAction(openFileAction)
 
+		######################
+		# Configuration menu #
+		######################
+		def showConfigurationMenu():
+			dialog = QDialog()
+			widget = QWidget(dialog)
+			self.truc = widget
+			layout = QHBoxLayout(widget)
+			self.widgetSpinBoxes = {
+				"Filter" : SpinBox("Filter" , self.conf, 0, 5   ),
+				"Click"  : SpinBox("Click"  , self.conf, 0, 5   ),
+				"Row min": SpinBox("Row min", self.conf, 0, None),
+				"Row max": SpinBox("Row max", self.conf, 0, 100 ),
+				"Nb Q"   : SpinBox("Nb Q"   , self.conf, 1, 50  ),
+				"Check answer": CheckBox("With answer", self.conf, dialog)}
+			for k, v in sorted(self.widgetSpinBoxes.items()):
+				layout.addWidget(v)
+			widget.adjustSize()
+			dialog.setWindowTitle("Configuration tool")
+			dialog.setWindowModality(Qt.ApplicationModal)
+			dialog.exec_()
+		configurationAction = QAction(QIcon('config.png'), 'Configuration tool Ctrl+K', self)
+		configurationAction.setShortcut('Ctrl+K')
+		configurationAction.triggered.connect(showConfigurationMenu)
+		self.toolbar = self.addToolBar('Configuration tool')
+		self.toolbar.addAction(configurationAction)
+
 		self.setWindowTitle('Verben Prünfung')
 		self.setWindowIcon(QIcon('germanFlag.jpg'))
-		self.setGeometry(300, 300, 300, 200)
+		self.center()
 		self.show()
 
-	def showDialog(self):
+	def showOpenFileMenu(self):
 		fileName = QFileDialog.getOpenFileName(self, 'Open file', '/home/pierre/PycharmProjects/Verben','Coma separated value files (*.csv)')
 		if fileName[0]:
+			for i in range(len(self.theWidget.stats.stats)):
+				self.theWidget.stats.stats[i].deleteLater()
 			for i in range(len(self.theWidget.solution)):
 				self.theWidget.solution.pop(-1)
 			for i in range(len(self.theWidget.userSolution)):
@@ -174,14 +200,20 @@ class MainWindow(QMainWindow):
 				if item.widget() is None: continue
 				item.widget().deleteLater()
 			conf = self.conf
-			self.conf.wordsList = []
-			self.conf.nbWordsSerie = 0
+			conf.__init__()
 			conf.openCsvFile(fileName[0])
 			self.__init__(conf)
 
+	def center(self):
+		frameGm = self.frameGeometry()
+		screen = QApplication.desktop().screenNumber(QApplication.desktop().cursor().pos())
+		centerPoint = QApplication.desktop().screenGeometry(screen).center()
+		frameGm.moveCenter(centerPoint)
+		self.move(frameGm.topLeft())
+
 def main():
 	conf = Configuration()
-	conf.openCsvFile(fileName='Tieren Deutsch.csv') #'ver.csv')#
+	conf.openCsvFile(fileName='Tieren Deutsch.csv')
 	# Step 1 : Creation of the application
 	app = QApplication(sys.argv)
 	# Step 2 : Creation of the main window

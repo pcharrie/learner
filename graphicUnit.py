@@ -57,10 +57,7 @@ class Widget(QWidget):
 				self.validAction.validTrig.emit()
 
 	def setTitle(self):
-		assert len(self.conf.wordsList) > 0
-		titleList = self.conf.wordsList.pop(0)
-		self.conf.endIdx -= 1
-		for row, t in enumerate(titleList):
+		for row, t in enumerate(self.conf.titleList):
 			if row > self.conf.endIdx: continue
 			labelTitle = QLabel(self)
 			labelTitle.setText(t)
