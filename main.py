@@ -49,6 +49,7 @@ class Configuration():
 
 		try:
 			with open(fileName, newline='\n', encoding='iso-8859-1',errors='ignore') as csvfile:
+				self.openConf()
 				fileReader = csv.reader(csvfile, delimiter=';', quotechar='|')
 				for i, row in enumerate(fileReader):
 					if i == 0: self.nbFields = len(row) # The size is set by the header of the word list
@@ -59,7 +60,6 @@ class Configuration():
 						for idx in self.columnToFilter:
 							if idx >= len(row): continue
 							row.pop(idx)
-							print("poping ", row, idx)
 						print(row)
 						self.wordsList.append(row)
 						self.nbWordSerie += 1
@@ -157,7 +157,7 @@ class MainWindow(QMainWindow):
 				"Filter" : SpinBox("Filter" , self.conf, 0, 5   ),
 				"Click"  : SpinBox("Click"  , self.conf, 0, 5   ),
 				"Row min": SpinBox("Row min", self.conf, 0, None),
-				"Row max": SpinBox("Row max", self.conf, 0, 100 ),
+				"Row max": SpinBox("Row max", self.conf, 0, 300 ),
 				"Nb Q"   : SpinBox("Nb Q"   , self.conf, 1, 50  ),
 				"Check answer": CheckBox("With answer", self.conf, dialog)}
 			for k, v in sorted(self.widgetSpinBoxes.items()):
@@ -178,7 +178,7 @@ class MainWindow(QMainWindow):
 		self.show()
 
 	def showOpenFileMenu(self):
-		fileName = QFileDialog.getOpenFileName(self, 'Open file', '/home/pierre/PycharmProjects/Verben','Coma separated value files (*.csv)')
+		fileName = QFileDialog.getOpenFileName(self, 'Open file', '.','Coma separated value files (*.csv)')
 		if fileName[0]:
 			for i in range(len(self.theWidget.stats.stats)):
 				self.theWidget.stats.stats[i].deleteLater()
@@ -213,7 +213,7 @@ class MainWindow(QMainWindow):
 
 def main():
 	conf = Configuration()
-	conf.openCsvFile(fileName='Tieren Deutsch.csv')
+	conf.openCsvFile(fileName='Verben.csv')
 	# Step 1 : Creation of the application
 	app = QApplication(sys.argv)
 	# Step 2 : Creation of the main window

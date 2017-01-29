@@ -164,13 +164,13 @@ class Widget(QWidget):
 			self.conf.schlem += 1
 			self.conf.nbCorrectAnswer += self.conf.nbFields - nbBadAnswer
 			self.nextQuestion()
-		elif self.nbClickValid == self.conf.nbClickValidMax:  # nb of tries
-			self.nbClickValid = 0
-			self.stats.addWordToHistogram(self.solution[0], self.conf.wordsList)  # histogram references only the idx 0
-			self.conf.nbCorrectAnswer += self.conf.nbFields - nbBadAnswer
-			self.nextQuestion()
 		else:
+			self.stats.addWordToHistogram(self.solution[0], self.conf.wordsList)  # histogram references only the idx 0
 			self.conf.schlem = 0
+			if self.nbClickValid == self.conf.nbClickValidMax:  # nb of tries
+				self.nbClickValid = 0
+				self.conf.nbCorrectAnswer += self.conf.nbFields - nbBadAnswer
+				self.nextQuestion()
 
 	def finishGame(self):
 		self.stats.saveStats()
